@@ -19,7 +19,7 @@
  * Difficulty: 1
  */
 int bitAnd(int x, int y) {
-    return 2;
+    return ~(~x|~y);
 }
 
 /*
@@ -30,7 +30,7 @@ int bitAnd(int x, int y) {
  *   Difficulty: 1
  */
 int bitXor(int x, int y) {
-    return 2;
+    return (~(~x&~y))&~(x&y);
 }
 
 /*
@@ -50,7 +50,15 @@ int bitXor(int x, int y) {
  *   1 if x and y have the same sign , 0 otherwise.
  */
 int samesign(int x, int y) {
-    return 2;
+    if(!x){
+        return !y;
+    }else{
+        if(!y){
+            return 0;
+        }else{
+            return !((x>>31)^(y>>31));
+        }
+    }
 }
 
 /*
@@ -63,7 +71,16 @@ int samesign(int x, int y) {
  *   Difficulty: 4
  */
 int logtwo(int v) {
-    return 2;
+    int t1=((v>>16)>0)<<4;
+    v=v>>t1;
+    int t2=((v>>8)>0)<<3;
+    v=v>>t2;
+    int t3=((v>>4)>0)<<2;
+    v=v>>t3;
+    int t4=((v>>2)>0)<<1;
+    v=v>>t4;
+    int t5=(v>>1)>0;
+    return t1|t2|t3|t4|t5;
 }
 
 /*
@@ -76,7 +93,12 @@ int logtwo(int v) {
  *    Difficulty: 2
  */
 int byteSwap(int x, int n, int m) {
-    return 2;
+    int sn=n<<3;
+    int sm=m<<3;
+    int bn=(x>>sn)&0xFF;
+    int bm=(x>>sm)&0xFF;
+    int xor=bn^bm;
+    return x^(xor<<sn)^(xor<<sm);
 }
 
 /*
@@ -88,7 +110,14 @@ int byteSwap(int x, int n, int m) {
  *   Difficulty: 3
  */
 unsigned reverse(unsigned v) {
-    return 2;
+    unsigned result=0;
+    int i=32;
+    while(i){
+        result=(result<<1)|(v&1);
+        v=v>>1;
+        i=i-1;
+    }
+    return result;
 }
 
 /*
@@ -100,7 +129,8 @@ unsigned reverse(unsigned v) {
  *   Difficulty: 3
  */
 int logicalShift(int x, int n) {
-    return 2;
+    int mask=~(((1<<31)>>n)<<1);
+    return (x>>n)&mask;
 }
 
 /*
@@ -112,7 +142,25 @@ int logicalShift(int x, int n) {
  *   Difficulty: 4
  */
 int leftBitCount(int x) {
-    return 2;
+    int y=~x;
+    int count=0;
+    int s;
+    s=(!(y&0xFFFF0000))<<4;
+    count=count+s;
+    y=y<<s;
+    s=(!(y&0xFF000000))<<3;
+    count=count+s;
+    y=y<<s;
+    s=(!(y&0xF0000000))<<2;
+    count=count+s;
+    y=y<<s;
+    s=(!(y&0xC0000000))<<1;
+    count=count+s;
+    y=y<<s;
+    s=(!(y&0x80000000));
+    count=count+s;
+    y=y<<s;
+    return count+!y;  //如果x是-1，count=31，加上这个1就能得到32；其他时候！y都是0
 }
 
 /*
@@ -124,7 +172,34 @@ int leftBitCount(int x) {
  *   Difficulty: 4
  */
 unsigned float_i2f(int x) {
-    return 2;
+    if(x==0)return 0;
+    if(x==0x80000000)return 0xCF000000;
+    unsigned sign=0;
+    int exp=158;
+    if(x<0){
+        sign=0x80000000;
+        x=-x;
+    }
+    while(!(x&0x80000000)){
+        x=x<<1;
+        exp=exp-1;
+    }
+    unsigned int f=(x>>8)&0x007FFFFF; 
+    unsigned int r=x&0xFF;
+    if(r>128){
+        f++;
+    }else{
+        if(r==128){
+            if(f&1){
+                f++;
+            }
+        }
+    }
+    if(f&0x800000){
+        exp=exp+1;
+        f=f&0x7FFFFF;
+    }
+    return sign|(exp<<23)|f;
 }
 
 /*
@@ -139,7 +214,10 @@ unsigned float_i2f(int x) {
  *   Difficulty: 4
  */
 unsigned floatScale2(unsigned uf) {
-    return 2;
+    unsigned exp=(uf>>23)&0xFF;
+    if(exp==0xFF)return uf;
+    if(exp==0)return (uf&0x80000000)|(uf<<1);
+    return uf+(1<<23);
 }
 
 /*
@@ -156,7 +234,22 @@ unsigned floatScale2(unsigned uf) {
  *   Difficulty: 3
  */
 int float64_f2i(unsigned uf1, unsigned uf2) {
-    return 2;
+    int sign=uf2>>31;
+    int exp=((uf2>>20)&0x7FF)-1023;
+    unsigned int high=(uf2&0xFFFFF)|0x100000;
+    unsigned int low=uf1;
+    if(exp<0)return 0;
+    if(exp>=31)return 0x80000000;
+    int result=0;
+    if(exp>=20){
+        result=(high<<(exp-20))|(low>>(32-(exp-20))); //高位左移留出空位，低位右移得到低位的高位补上去
+    }else{
+        result=high>>(20-exp);
+    }
+    if(sign){
+        result=-result;
+    }
+    return result;
 }
 
 /*
@@ -173,5 +266,13 @@ int float64_f2i(unsigned uf1, unsigned uf2) {
  *   Difficulty: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    if(x>127)return 0x7F800000;
+    if(x<-149)return 0;
+    if(x>=-126){
+        int exp=x+127;
+        return exp<<23;
+    }else{
+        int s=x+149;
+        return 1<<s;
+    }
 }
